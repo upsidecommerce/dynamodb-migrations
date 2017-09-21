@@ -83,16 +83,19 @@ var create = function(migrationName, options) {
 module.exports.create = create;
 
 var executeAll = function(dynamodb, options) {
-    return new BbPromise(function(resolve, reject) {
-        fs.readdirSync(options.dir).forEach(function(file) {
-            if (path.extname(file) === ".json") {
-                var migration = require(options.dir + '/' + file);
-                migration.Table.TableName = formatTableName(migration, options);
-                createTable(dynamodb, migration).then(function(executedMigration) {
-                    runSeeds(dynamodb, executedMigration).then(resolve, reject);
-                });
-            }
-        });
+    var tableExec = BbPromise.map(fs.readdirSync(options.dir), function(file) {
+          if (path.extname(file) === ".json") {
+            var migration = require(options.dir + '/' + file);
+            migration.Table.TableName = formatTableName(migration, options);
+            return createTable(dynamodb, migration);
+          }
+          return BbPromise.resolve();
+    } ,{concurrency:options.tableConcurrency});
+
+    return tableExec.then(function(migrations) {
+        return BbPromise.map(migrations, function(migration) {
+          return runSeeds(dynamodb, migration);
+        }, {concurrency:options.seedConcurrency});
     });
 };
 module.exports.executeAll = executeAll;

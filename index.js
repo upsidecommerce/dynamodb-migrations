@@ -3,7 +3,9 @@
 var migrations = require('./dynamodb/migrations'),
     tableOpt = {
         prefix: "",
-        suffix: ""
+        suffix: "",
+        tableConcurrency: 10,
+        seedConcurrency: 10
     },
     dynamo, dir;
 
@@ -29,7 +31,9 @@ var manager = {
         return migrations.executeAll(dynamo, {
             dir: dir,
             tablePrefix: tableOptions.prefix || tableOpt.prefix,
-            tableSuffix: tableOptions.suffix || tableOpt.suffix
+            tableSuffix: tableOptions.suffix || tableOpt.suffix,
+            tableConcurrency: tableOptions.tableConcurrency || tableOpt.tableConcurrency,
+            seedConcurrency: tableOptions.seedConcurrency || tableOpt.seedConcurrency
         });
     }
 };
