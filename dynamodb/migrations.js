@@ -5,16 +5,31 @@ var BbPromise = require('bluebird'),
     path = require('path');
 
 var createTable = function(dynamodb, migration) {
-    return new BbPromise(function(resolve) {
-        dynamodb.raw.createTable(migration.Table, function(err) {
-            if (err) {
-                console.log(err);
-            } else {
-                console.log("Table creation completed for table: " + migration.Table.TableName);
-            }
-            resolve(migration);
+  console.log("Starting table creation for table: " + migration.Table.TableName);
+  return new BbPromise(function(resolve, reject) {
+    dynamodb.raw.createTable(migration.Table, function(err) {
+      if (err) {
+        if(err.code === 'ResourceInUseException') {
+          console.log('Table ' + migration.Table.TableName + ' already exists. Skipping creation...');
+          return resolve(migration);
+        }
+        console.log(err);
+        reject(migration);
+      } else {
+        console.log("Table creation requested for table: " + migration.Table.TableName + '. Waiting for Dynamo to confirm that the table is ready...');
+        dynamodb.raw.waitFor('tableExists', {TableName: migration.Table.TableName}, function(err) {
+          if(err) {
+            console.log(err)
+            reject(err);
+          }
+
+          console.log("Table creation completed for table: " + migration.Table.TableName);
+
+          resolve(migration);
         });
+      }
     });
+  });
 };
 
 var formatTableName = function(migration, options) {
